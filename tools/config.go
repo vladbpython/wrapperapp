@@ -26,7 +26,7 @@ func LoadYamlConfig(filePath string, config interface{}) {
 func ReadEnvConfig(filePath string) {
 	err := gotenv.Load(filePath)
 	if err != nil {
-		log.Fatalf("[ERROR]: Read enviroment config file: %v ", err)
+		log.Printf("[WARNING]: Read enviroment config file: %v ", err)
 	}
 }
 
