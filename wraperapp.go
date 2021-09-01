@@ -2,6 +2,7 @@ package wrapperapp
 
 import (
 	"context"
+	"log"
 	"sync"
 	"time"
 
@@ -30,9 +31,17 @@ type ApplicationWrapper struct {
 }
 
 //Иницализируем конфиг
-func (a *ApplicationWrapper) InitConfig(config interface{}) {
+func (a *ApplicationWrapper) LoadConfigYaml(config interface{}) {
 	tools.LoadYamlConfig(a.ConfigFilePath, config)
 
+}
+
+func (a *ApplicationWrapper) ReadConfigEnv(filePath string) {
+	tools.ReadEnvConfig(filePath)
+}
+
+func (a *ApplicationWrapper) LoadConfigEnv(section_prefix string, config interface{}) {
+	tools.ParseEnvConfig(section_prefix, config)
 }
 
 //Добавляем системные компоненты приложению
@@ -162,9 +171,19 @@ func (a *ApplicationWrapper) RunListener() {
 }
 
 //Новый экземпляр Wrapper
-func InitWrapperApplication(ApplicationName string, ConfigFilePath string, useInfo bool, withContext bool) *ApplicationWrapper {
+func InitWrapperApplication(ApplicationName, configType, ConfigFilePath string, useInfo bool, withContext bool) *ApplicationWrapper {
 	config := ConfigWrapper{}
-	tools.LoadYamlConfig(ConfigFilePath, &config)
+	switch configType {
+	case "yaml":
+		tools.LoadYamlConfig(ConfigFilePath, &config)
+	case "env":
+		tools.ReadEnvConfig(ConfigFilePath)
+		tools.ParseEnvConfig("system", &config.System)
+		tools.ParseEnvConfig("logging", &config.System.Logger)
+	default:
+		log.Fatal("Invalid config type")
+	}
+
 	appName := ApplicationName
 	if config.System.AppName != "" {
 		appName += " " + config.System.AppName
