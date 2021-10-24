@@ -21,3 +21,8 @@ type ConfigSystem struct {
 type ConfigWrapper struct {
 	System ConfigSystem `yaml:"system"`
 }
+
+type WrapperStructConfig struct {
+	MaxRetries uint `yaml:"max_retries" envconfig:"max_retries"`
+	MaxWait    uint `yaml:"max_wait" envconfig:"max_wait"`
+}

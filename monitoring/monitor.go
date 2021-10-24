@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vladbpython/wrapperapp/interfaces"
 	"github.com/vladbpython/wrapperapp/monitoring/adapters"
 )
 
@@ -12,7 +13,7 @@ type Monitoring struct {
 	AppName    string
 	Events     []string
 	Components []string
-	Adapters   []MonitoringAdapterInterface
+	Adapters   []interfaces.MonitoringAdapterInterface
 }
 
 func (m *Monitoring) AddEvents(events ...string) {
@@ -27,7 +28,7 @@ func (m *Monitoring) AddComponents(components ...string) {
 	}
 }
 
-func (m *Monitoring) AddAdapter(adapter MonitoringAdapterInterface) error {
+func (m *Monitoring) AddAdapter(adapter interfaces.MonitoringAdapterInterface) error {
 	return adapter.Initializate()
 }
 
@@ -60,7 +61,7 @@ func NewMonitoringFromConfig(appName string, cfg *ConfigMinotiring) (*Monitoring
 		AppName:    appName,
 		Events:     make([]string, len(cfg.Events)),
 		Components: make([]string, len(cfg.Compontens)),
-		Adapters:   make([]MonitoringAdapterInterface, len(cfg.Adapters)),
+		Adapters:   make([]interfaces.MonitoringAdapterInterface, len(cfg.Adapters)),
 	}
 	monitor.AddComponents(cfg.Compontens...)
 	monitor.AddEvents(cfg.Events...)

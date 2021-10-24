@@ -57,12 +57,16 @@ func (s *System) OnDieSignal() <-chan bool {
 }
 
 // Устанавливаем сигналы
-func (s *System) Setup() {
-	signal.Notify(s.osChan, syscall.SIGTERM, syscall.SIGINT)
+func (s *System) Setup(signals ...os.Signal) {
+	sigs := make([]os.Signal, 2)
+	sigs[0] = syscall.SIGTERM
+	sigs[1] = syscall.SIGINT
+	sigs = append(sigs, signals...)
+	signal.Notify(s.osChan, sigs...)
 }
 
 //Инциализация нового экземпляра сисетмы
-func NewSystem(debug uint8) System {
+func NewSystem(debug uint8, signals ...os.Signal) System {
 	osCh := make(chan os.Signal)
 	errCh := make(chan bool)
 	system := System{
@@ -70,6 +74,6 @@ func NewSystem(debug uint8) System {
 		errChan: errCh,
 		Debug:   debug,
 	}
-	system.Setup()
+	system.Setup(signals...)
 	return system
 }

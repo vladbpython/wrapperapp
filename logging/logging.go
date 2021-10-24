@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/vladbpython/wrapperapp/monitoring"
+	"github.com/vladbpython/wrapperapp/interfaces"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -19,7 +19,7 @@ type Logging struct {
 	logError         *log.Logger
 	logOutInstance   *lumberjack.Logger
 	logErrorInstance *lumberjack.Logger
-	Monitoring       *monitoring.Monitoring
+	Monitoring       interfaces.WrappMonitoring
 }
 
 func (l *Logging) error(AppName string, err error) {
@@ -40,7 +40,7 @@ func (l *Logging) critical(AppName string, err error) {
 	l.logError.Printf("[CRITICAL]: [APPNAME]:%s  [TEXT]: %s\n\r", AppName, err)
 }
 
-func (l *Logging) SetMonitoring(monitor *monitoring.Monitoring) {
+func (l *Logging) SetMonitoring(monitor interfaces.WrappMonitoring) {
 	l.Monitoring = monitor
 }
 
