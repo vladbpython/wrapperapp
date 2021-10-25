@@ -72,6 +72,10 @@ func (a *ApplicationWrapper) close(text string) {
 
 }
 
+func (a *ApplicationWrapper) GetAppName() string {
+	return a.appName
+}
+
 func (a *ApplicationWrapper) GetConfig() ConfigWrapper {
 	return a.config
 }
