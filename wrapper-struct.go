@@ -59,7 +59,7 @@ func (s *WrapperStruct) RetryCallMethod(method interface{}, arguments ...interfa
 	tools.WrapFuncOnErrorFatal(s.AppName, s.Logger, s.maxRetries, s.maxWait, method, arguments...)
 }
 
-func (s *WrapperStruct) LoadAdpterPropertiesFromConfig(config WrapperStructConfig) {
+func (s *WrapperStruct) LoadSettingFromConfig(config WrapperStructConfig) {
 	s.SetMaxRetries(config.MaxRetries)
 	s.SetMaxWait(config.MaxWait)
 }

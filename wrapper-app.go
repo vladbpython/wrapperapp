@@ -72,8 +72,20 @@ func (a *ApplicationWrapper) close(text string) {
 
 }
 
+func (a *ApplicationWrapper) GetConfig() ConfigWrapper {
+	return a.config
+}
+
 func (a *ApplicationWrapper) GetContext() context.Context {
 	return a.ctx
+}
+
+func (a *ApplicationWrapper) GetLogger() *logging.Logging {
+	return a.logger
+}
+
+func (a *ApplicationWrapper) GetSystem() *system.System {
+	return &a.system
 }
 
 func (a *ApplicationWrapper) GetWG() *sync.WaitGroup {
