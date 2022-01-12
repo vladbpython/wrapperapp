@@ -139,7 +139,7 @@ func (a *ApplicationWrapper) initMonitoring() {
 // Иницализируем контекст
 func (a *ApplicationWrapper) initContext() {
 
-	a.ctx, a.finish = context.WithCancel(context.Background())
+	a.ctx, a.finish = tools.NewContextCancel(tools.ContextBackground())
 }
 
 func (a *ApplicationWrapper) clear() {
