@@ -5,11 +5,12 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/vladbpython/wrapperapp/helpers"
 	"github.com/vladbpython/wrapperapp/interfaces"
 )
 
 func WrapFunc(fn interface{}, arguments ...interface{}) ([]reflect.Value, error) {
-	var values []reflect.Value
+	values := make([]reflect.Value, 0)
 	fParser := reflect.ValueOf(fn)
 
 	if len(arguments) != fParser.Type().NumIn() {
@@ -31,11 +32,10 @@ func WrapFuncError(fn interface{}, arguments ...interface{}) error {
 		return err
 	}
 
-	for _, vObj := range values {
-		value := vObj.Interface()
-		switch value.(type) {
+	for _, obj := range helpers.SliceReflectValuesToInterfaces(values) {
+		switch obj.(type) {
 		case error:
-			return value.(error)
+			return obj.(error)
 		}
 	}
 

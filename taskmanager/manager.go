@@ -3,17 +3,19 @@ package taskmanager
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
+	"github.com/vladbpython/wrapperapp/helpers"
 	loggining "github.com/vladbpython/wrapperapp/logging"
+	"github.com/vladbpython/wrapperapp/tools"
 )
 
 type TaskWrapper struct {
 	Task     *Task
 	Type     string
 	Interval time.Duration
+	CallBack func(data []interface{})
 	Running  bool
 	Chain    chan bool
 }
@@ -36,6 +38,13 @@ func (t *TaskWrapper) StopTask() {
 //Событие при остановке задачи, читаем из канала
 func (t *TaskWrapper) OnStop() <-chan bool {
 	return t.Chain
+}
+
+func (t *TaskWrapper) SendCallBack(data []interface{}) {
+	if t.CallBack == nil {
+		return
+	}
+	t.CallBack(data)
 }
 
 //Закрываем задачу
@@ -173,7 +182,9 @@ func (t *BackgroundTaskManager) executeTask(taskWrapper *TaskWrapper) {
 	defer taskWrapper.Clear()
 	defer t.waitGroup.Done()
 	taskWrapper.ChangeStatus(true)
-	t.onError(t.callTask(taskWrapper.Task))
+	data, err := t.callTask(taskWrapper.Task)
+	t.onError(err)
+	taskWrapper.SendCallBack(data)
 	t.Logger.Info(t.AppName, fmt.Sprintf("%s task finished, type: %s", taskWrapper.Task.Name, "task"))
 
 }
@@ -195,7 +206,9 @@ func (t *BackgroundTaskManager) executeTaskByInterval(taskWrapper *TaskWrapper) 
 			t.Logger.Info(t.AppName, fmt.Sprintf("%s task stopped, type: %s", taskWrapper.Task.Name, taskWrapper.Type))
 			return
 		case <-ticker.C:
-			t.onError(t.callTask(taskWrapper.Task))
+			data, err := t.callTask(taskWrapper.Task)
+			t.onError(err)
+			taskWrapper.SendCallBack(data)
 		}
 
 	}
@@ -216,26 +229,19 @@ func (t *BackgroundTaskManager) listenerDeferedTasks() {
 		case <-t.ctx.Done():
 			return
 		case deferedTask := <-t.deferedTasks:
-			t.onError(t.callTask(&deferedTask))
+			_, err := t.callTask(&deferedTask)
+			t.onError(err)
 		}
 
 	}
 }
 
 // Выполнить задачу
-func (t *BackgroundTaskManager) callTask(task *Task) (err error) {
-	fParser := reflect.ValueOf(task.fn)
-	if len(task.arguments) != fParser.Type().NumIn() {
-		err = fmt.Errorf("Task '%v' the number of arguments is not adapted.", task.Name)
-		return
-	}
-	in := make([]reflect.Value, len(task.arguments))
-	for k, v := range task.arguments {
-		in[k] = reflect.ValueOf(v)
-	}
-	fParser.Call(in)
+func (t *BackgroundTaskManager) callTask(task *Task) ([]interface{}, error) {
 
-	return
+	values, err := tools.WrapFunc(task.fn, task.arguments)
+
+	return helpers.SliceReflectValuesToInterfaces(values), err
 }
 
 // Запустить диспетчер задач
