@@ -239,7 +239,7 @@ func (t *BackgroundTaskManager) listenerDeferedTasks() {
 // Выполнить задачу
 func (t *BackgroundTaskManager) callTask(task *Task) ([]interface{}, error) {
 
-	values, err := tools.WrapFunc(task.fn, task.arguments)
+	values, err := tools.WrapFunc(task.fn, task.arguments...)
 
 	return helpers.SliceReflectValuesToInterfaces(values), err
 }
