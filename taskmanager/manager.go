@@ -12,17 +12,18 @@ import (
 )
 
 type TaskWrapper struct {
-	Task     *Task
-	Type     string
-	Interval time.Duration
-	CallBack func(data []interface{})
-	Running  bool
-	Chain    chan bool
+	Task      *Task
+	Type      string
+	Interval  time.Duration
+	CallBack  func(data []interface{})
+	Running   bool
+	ctx       context.Context
+	cancelCtx context.CancelFunc
 }
 
 //Инциализируем обертку для задачи
 func (t *TaskWrapper) Init() {
-	t.Chain = make(chan bool)
+	t.ctx, t.cancelCtx = tools.NewContextCancel(tools.ContextBackground())
 }
 
 //Устанавливаем/Изминяем статус обертки для задачи
@@ -32,12 +33,12 @@ func (t *TaskWrapper) ChangeStatus(status bool) {
 
 //Остонвливаем задачу
 func (t *TaskWrapper) StopTask() {
-	t.Chain <- true
+	t.cancelCtx()
 }
 
 //Событие при остановке задачи, читаем из канала
-func (t *TaskWrapper) OnStop() <-chan bool {
-	return t.Chain
+func (t *TaskWrapper) OnStop() <-chan struct{} {
+	return t.ctx.Done()
 }
 
 func (t *TaskWrapper) SendCallBack(data []interface{}) {
@@ -50,7 +51,8 @@ func (t *TaskWrapper) SendCallBack(data []interface{}) {
 //Закрываем задачу
 func (t *TaskWrapper) Clear() {
 	t.ChangeStatus(false)
-	close(t.Chain)
+	t.ctx = nil
+	t.cancelCtx = nil
 }
 
 type BackgroundTaskManager struct {
@@ -59,9 +61,9 @@ type BackgroundTaskManager struct {
 	Logger       *loggining.Logging
 	tasks        map[string]*TaskWrapper
 	deferedTasks chan Task
-	lock         sync.Mutex
 	ctx          context.Context
 	waitGroup    *sync.WaitGroup
+	sync.RWMutex
 }
 
 // При ошибке пишем в лог
@@ -79,20 +81,24 @@ func (t *BackgroundTaskManager) onTaskNotFound(taskName string) {
 
 // Достаем задачу из контейнера
 func (t *BackgroundTaskManager) GetTask(taskName string) *TaskWrapper {
-	task, issetTask := t.tasks[taskName]
-	if !issetTask {
-		return nil
-	}
-	return task
+	t.RLock()
+	defer t.RUnlock()
+	return t.tasks[taskName]
+}
+
+func (t *BackgroundTaskManager) GetAllTasks() map[string]*TaskWrapper {
+	t.RLock()
+	defer t.RUnlock()
+	return t.tasks
 }
 
 //Регистрируем задачу  и добавляем её в контейнер
 func (t *BackgroundTaskManager) registerTask(taskWrapper *TaskWrapper) {
-	t.lock.Lock()
-	defer t.lock.Unlock()
 	getTask := t.GetTask(taskWrapper.Task.Name)
 	if getTask == nil {
+		t.Lock()
 		t.tasks[taskWrapper.Task.Name] = taskWrapper
+		t.Unlock()
 	}
 }
 
@@ -103,12 +109,11 @@ func (t *BackgroundTaskManager) prepearTask(taskWrapper *TaskWrapper) {
 		return
 	}
 	taskWrapper.Init()
+	t.waitGroup.Add(1)
 	switch taskWrapper.Type {
 	case "interval":
-		t.waitGroup.Add(1)
 		go t.executeTaskByInterval(taskWrapper)
 	default:
-		t.waitGroup.Add(1)
 		go t.executeTask(taskWrapper)
 	}
 
@@ -134,6 +139,12 @@ func (t *BackgroundTaskManager) AddTaskByInterval(task *Task, interval time.Dura
 	t.initTask(&taskWrapper)
 }
 
+func (t *BackgroundTaskManager) removeTask(taskName string) {
+	t.Lock()
+	defer t.Unlock()
+	delete(t.tasks, taskName)
+}
+
 //Останавливаем и удаляем задачу из контейнера
 func (t *BackgroundTaskManager) RemoveTask(taskNames ...string) {
 	for _, taskName := range taskNames {
@@ -144,7 +155,7 @@ func (t *BackgroundTaskManager) RemoveTask(taskNames ...string) {
 			if task.Running && task.Type == "interval" {
 				task.StopTask()
 			}
-			delete(t.tasks, taskName)
+			t.removeTask(taskName)
 			t.Logger.Info(t.AppName, fmt.Sprintf("Task '%v' is stopped and removed", taskName))
 		}
 	}
@@ -152,7 +163,7 @@ func (t *BackgroundTaskManager) RemoveTask(taskNames ...string) {
 }
 
 // Запускаем/Перезапускаем задачу вручную
-func (t *BackgroundTaskManager) RunTask(taskName string) {
+func (t *BackgroundTaskManager) StartTask(taskName string) {
 	task := t.GetTask(taskName)
 	if task == nil {
 		t.onTaskNotFound(taskName)
@@ -245,7 +256,7 @@ func (t *BackgroundTaskManager) callTask(task *Task) ([]interface{}, error) {
 }
 
 // Запустить диспетчер задач
-func (t *BackgroundTaskManager) Run() {
+func (t *BackgroundTaskManager) Start() {
 	if !t.Active {
 		t.Active = true
 		for _, task := range t.tasks {
@@ -268,11 +279,11 @@ func (t *BackgroundTaskManager) Stop() {
 
 // Остановить и удалить все задачи из контейнера
 func (t *BackgroundTaskManager) ClearAllTasks() {
-	for taskName, task := range t.tasks {
+	for taskName, task := range t.GetAllTasks() {
 		if task.Running && task.Type == "interval" {
 			task.StopTask()
 		}
-		delete(t.tasks, taskName)
+		t.removeTask(taskName)
 		t.Logger.Info(t.AppName, fmt.Sprintf("Task '%v' is stopped and removed from taskmanager", taskName))
 	}
 }
