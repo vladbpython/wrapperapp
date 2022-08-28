@@ -58,12 +58,11 @@ func (s *System) OnDieSignal() <-chan bool {
 
 // Устанавливаем сигналы
 func (s *System) Setup(signals ...os.Signal) {
-	sigs := make([]os.Signal, 5)
+	sigs := make([]os.Signal, 4)
 	sigs[0] = syscall.SIGTERM
 	sigs[1] = syscall.SIGINT
 	sigs[2] = syscall.SIGHUP
 	sigs[3] = syscall.SIGQUIT
-	sigs[4] = syscall.SIGWINCH
 	sigs = append(sigs, signals...)
 	signal.Notify(s.osChan, sigs...)
 }
