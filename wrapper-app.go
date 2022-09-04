@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/vladbpython/wrapperapp/containers"
 	"github.com/vladbpython/wrapperapp/interfaces"
@@ -219,11 +218,11 @@ func (a *ApplicationWrapper) RunContextListener() {
 		case <-a.system.OnExitSignal():
 			eventString = "closed"
 			return
+		case <-a.system.OnIgnoreSognal():
+			continue
 		case <-a.system.OnDieSignal():
 			eventString = "losed terminated"
 			return
-		case <-time.After(1 * time.Second):
-			continue
 		}
 	}
 }

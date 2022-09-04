@@ -11,9 +11,10 @@ import (
 
 //Структура системы
 type System struct {
-	osChan  chan os.Signal //Системный канал событий
-	errChan chan bool      //Системный канал кртических ошибок
-	Debug   uint8          //Уровень дебага
+	osChan       chan os.Signal //Системный канал событий
+	osIgnoreChan chan os.Signal
+	errChan      chan bool //Системный канал кртических ошибок
+	Debug        uint8     //Уровень дебага
 }
 
 // Послать в канал, что есть ошибка
@@ -29,6 +30,10 @@ func (s *System) ClearMemory() {
 func (s *System) OnExitSignal() <-chan os.Signal {
 	return s.osChan
 
+}
+
+func (s *System) OnIgnoreSognal() <-chan os.Signal {
+	return s.osIgnoreChan
 }
 
 func (s *System) StartTrace(dirPath string) interface{ Stop() } {
@@ -63,16 +68,16 @@ func (s *System) Setup(signals ...os.Signal) {
 	sigs[1] = syscall.SIGINT
 	sigs = append(sigs, signals...)
 	signal.Notify(s.osChan, sigs...)
+	signal.Notify(s.osIgnoreChan, syscall.SIGHUP)
 }
 
 //Инциализация нового экземпляра сисетмы
 func NewSystem(debug uint8, signals ...os.Signal) System {
-	osCh := make(chan os.Signal)
-	errCh := make(chan bool)
 	system := System{
-		osChan:  osCh,
-		errChan: errCh,
-		Debug:   debug,
+		osChan:       make(chan os.Signal),
+		osIgnoreChan: make(chan os.Signal),
+		errChan:      make(chan bool),
+		Debug:        debug,
 	}
 	system.Setup(signals...)
 	return system

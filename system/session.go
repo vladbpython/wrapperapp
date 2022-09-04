@@ -92,6 +92,7 @@ func (s *Session) runMonitor() {
 	defer func() {
 		s.runTaskOnStop()
 		s.systemWG.Done()
+		close(s.osChan)
 	}()
 
 	s.runTaskOnStart()
@@ -123,6 +124,7 @@ func NewSession(appName string, logger *logging.Logging, wg *sync.WaitGroup) *Se
 		appName:  appName,
 		logger:   logger,
 		systemWG: wg,
+		osChan:   make(chan os.Signal),
 	}
 	session.initialize()
 	return session
