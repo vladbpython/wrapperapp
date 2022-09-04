@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vladbpython/wrapperapp/containers"
 	"github.com/vladbpython/wrapperapp/interfaces"
 	"github.com/vladbpython/wrapperapp/logging"
 	"github.com/vladbpython/wrapperapp/monitoring"
@@ -20,17 +21,19 @@ const moduleName = "Application"
 
 // Структура обертки приложений
 type ApplicationWrapper struct {
-	appName         string
-	config          ConfigWrapper
-	configFilePath  string
-	system          system.System //Системная структура
-	logger          *logging.Logging
-	monitoring      *monitoring.Monitoring
-	ctx             context.Context    //Текущий конктекст
-	finish          context.CancelFunc // Закрытие текущего контекста
-	gorutinesWaiter sync.WaitGroup     // Группы горутин
-	onStopFuncs     []func()
-	useInfo         bool
+	appName           string
+	config            ConfigWrapper
+	configFilePath    string
+	system            system.System //Системная структура
+	logger            *logging.Logging
+	monitoring        *monitoring.Monitoring
+	ctx               context.Context    //Текущий конктекст
+	finish            context.CancelFunc // Закрытие текущего контекста
+	gorutinesWaiter   sync.WaitGroup     // Группы горутин
+	onStopFuncs       []func()
+	useInfo           bool
+	sessionLogger     *logging.Logging
+	containerSessions *containers.SessionContainer
 }
 
 //Иницализируем конфиг
@@ -58,8 +61,16 @@ func (a *ApplicationWrapper) WrapApplicationWaitGroup(app interfaces.WrapApplica
 	app.WrapWaitGroup(&a.gorutinesWaiter)
 }
 
+func (a *ApplicationWrapper) closeSessions() {
+	for key, session := range a.containerSessions.GetAll() {
+		a.containerSessions.Remove(key)
+		session.Stop()
+	}
+}
+
 //Посылаем остановку приложения
 func (a *ApplicationWrapper) close(text string) {
+	a.closeSessions()
 	a.finish()
 	a.gorutinesWaiter.Wait()
 	for _, fn := range a.onStopFuncs {
@@ -214,9 +225,7 @@ func (a *ApplicationWrapper) RunContextListener() {
 		case <-time.After(1 * time.Second):
 			continue
 		}
-
 	}
-
 }
 
 func (a *ApplicationWrapper) RunListener() {
@@ -224,6 +233,16 @@ func (a *ApplicationWrapper) RunListener() {
 		a.logger.Info(a.appName, "Run")
 	}
 	a.close("closed")
+}
+
+func (a *ApplicationWrapper) InitializeSessions() {
+	a.sessionLogger = a.NewLogger("sessions")
+}
+
+func (a *ApplicationWrapper) NewSession(appName string) *system.Session {
+	session := system.NewSession(appName, a.sessionLogger, a.GetWG())
+	a.containerSessions.Add(appName, session)
+	return session
 }
 
 //Новый экземпляр Wrapper
@@ -245,10 +264,11 @@ func NewWrapperApplication(ApplicationName, configType, ConfigFilePath string, u
 		appName += " " + config.System.AppName
 	}
 	app := &ApplicationWrapper{
-		appName:        appName,
-		config:         config,
-		configFilePath: ConfigFilePath,
-		useInfo:        useInfo,
+		appName:           appName,
+		config:            config,
+		configFilePath:    ConfigFilePath,
+		useInfo:           useInfo,
+		containerSessions: containers.NewSessionContainer(),
 	}
 	app.Setup(signals...)
 	if withContext {

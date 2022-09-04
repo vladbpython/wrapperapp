@@ -6,6 +6,18 @@ type Task struct {
 	arguments []interface{}
 }
 
+func (t *Task) GetName() string {
+	return t.Name
+}
+
+func (t *Task) GetFn() interface{} {
+	return t.GetFn()
+}
+
+func (t *Task) GetArguments() []interface{} {
+	return t.arguments
+}
+
 func NewTask(name string, fn interface{}, arguments ...interface{}) *Task {
 	return &Task{
 		Name:      name,
