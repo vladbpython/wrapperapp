@@ -13,7 +13,6 @@ import (
 type Session struct {
 	appName        string
 	logger         *logging.Logging
-	isStarted      bool
 	taskOnStart    *taskmanager.Task
 	taskOnStop     *taskmanager.Task
 	taskKeyOnStart string
@@ -23,10 +22,6 @@ type Session struct {
 	finish         context.CancelFunc
 	wg             sync.WaitGroup
 	systemWG       *sync.WaitGroup
-}
-
-func (s *Session) setStarted(action bool) {
-	s.isStarted = action
 }
 
 func (s *Session) initialize() {
@@ -65,10 +60,9 @@ func (s *Session) runTaskOnStart() {
 	task := s.taskOnStart
 	if task == nil {
 		return
-	} else if s.isStarted || task.GetInWorking() {
+	} else if task.GetInWorking() {
 		return
 	}
-	s.setStarted(true)
 	s.runTreadTask(task)
 }
 
@@ -76,10 +70,9 @@ func (s *Session) runTaskOnStop() {
 	task := s.taskOnStop
 	if s.taskOnStop == nil {
 		return
-	} else if !s.isStarted || task.GetInWorking() {
+	} else if task.GetInWorking() {
 		return
 	}
-	s.setStarted(false)
 	s.runTreadTask(task)
 	s.wg.Wait()
 }
