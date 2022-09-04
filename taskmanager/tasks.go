@@ -11,7 +11,7 @@ func (t *Task) GetName() string {
 }
 
 func (t *Task) GetFn() interface{} {
-	return t.GetFn()
+	return t.fn
 }
 
 func (t *Task) GetArguments() []interface{} {
