@@ -218,8 +218,8 @@ func (a *ApplicationWrapper) RunContextListener() {
 		case <-a.system.OnExitSignal():
 			eventString = "closed"
 			return
-		case <-a.system.OnIgnoreSognal():
-			continue
+		case <-a.system.OnReloadSessionSignal():
+			a.ReloadSessions()
 		case <-a.system.OnDieSignal():
 			eventString = "losed terminated"
 			return
@@ -242,6 +242,12 @@ func (a *ApplicationWrapper) NewSession(appName string) *system.Session {
 	session := system.NewSession(appName, a.sessionLogger, a.GetWG())
 	a.containerSessions.Add(appName, session)
 	return session
+}
+
+func (a *ApplicationWrapper) ReloadSessions() {
+	for _, session := range a.containerSessions.GetAll() {
+		session.SendSignalReload()
+	}
 }
 
 //Новый экземпляр Wrapper
