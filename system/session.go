@@ -114,6 +114,10 @@ func (s *Session) Stop() {
 	s.finish()
 }
 
+func (s *Session) Wait() {
+	s.wg.Wait()
+}
+
 func NewSession(appName string, logger *logging.Logging, wg *sync.WaitGroup) *Session {
 	session := &Session{
 		appName:  appName,
