@@ -70,10 +70,9 @@ func NewLog(config Config) *Logging {
 	errorWriters := make([]io.Writer, 0)
 
 	if config.FileMode {
-
-		fileLogger = NewFileLogger(config.FileConfig.DirPath, config.FileConfig.MaxSize, config.FileConfig.MaxRotate, fileLogger.out.Compress)
+		fileLogger = NewFileLogger(config.FileConfig.DirPath, config.FileConfig.MaxSize, config.FileConfig.MaxRotate, config.FileConfig.Gzip)
 		outWriters = append(outWriters, fileLogger.out)
-		outWriters = append(outWriters, fileLogger.err)
+		errorWriters = append(errorWriters, fileLogger.err)
 	}
 
 	if config.StdMode {

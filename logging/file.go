@@ -1,6 +1,10 @@
 package logging
 
-import "gopkg.in/natefinch/lumberjack.v2"
+import (
+	"fmt"
+
+	"gopkg.in/natefinch/lumberjack.v2"
+)
 
 type FileLogger struct {
 	out *lumberjack.Logger
@@ -21,6 +25,7 @@ func (l *FileLogger) Close() {
 }
 
 func NewFileLogger(dirPath string, maxSize int, maxBackups int, gzip bool) *FileLogger {
+	fmt.Println("file logger")
 	return &FileLogger{
 		out: &lumberjack.Logger{
 			Filename:   dirPath + "/out.log",
