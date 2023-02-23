@@ -3,10 +3,7 @@ package system
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 
 	"github.com/vladbpython/wrapperapp/logging"
 	"github.com/vladbpython/wrapperapp/taskmanager"
@@ -16,28 +13,19 @@ import (
 type Session struct {
 	appName        string
 	logger         *logging.Logging
-	isStarted      bool
-	taskKeyOnStart string
-	taskKeyOnStop  string
 	taskOnStart    *taskmanager.Task
 	taskOnStop     *taskmanager.Task
-	osChan         chan os.Signal //Системный канал событий
+	taskKeyOnStart string
+	taskKeyOnStop  string
+	reloadChannel  chan bool
 	ctx            context.Context
 	finish         context.CancelFunc
 	wg             sync.WaitGroup
 	systemWG       *sync.WaitGroup
 }
 
-func (s *Session) setStarted(action bool) {
-	s.isStarted = action
-}
-
 func (s *Session) initialize() {
 	s.ctx, s.finish = tools.NewContextCancel(tools.ContextBackground())
-}
-
-func (s *Session) setDefaultSignal() {
-	signal.Notify(s.osChan, syscall.SIGHUP)
 }
 
 func (s *Session) AddFnOnStart(fn interface{}, arguments ...interface{}) {
@@ -50,10 +38,12 @@ func (s *Session) AddFnOnStop(fn interface{}, arguments ...interface{}) {
 
 func (s *Session) callTask(task *taskmanager.Task) {
 	s.logger.Info(s.appName, fmt.Sprintf("task %s is started", task.GetName()))
+	task.SetInWorking(true)
 	err := tools.WrapFuncError(task.GetFn(), task.GetArguments()...)
 	if err != nil {
 		s.logger.Error(s.appName, fmt.Errorf("task %s is finished with errors: %s", task.GetName(), err.Error()))
 	}
+	task.SetInWorking(false)
 }
 
 func (s *Session) runTask(task *taskmanager.Task) {
@@ -67,24 +57,29 @@ func (s *Session) runTreadTask(task *taskmanager.Task) {
 }
 
 func (s *Session) runTaskOnStart() {
-	if s.isStarted {
+	task := s.taskOnStart
+	if task == nil {
 		return
-	} else if s.taskOnStart == nil {
+	} else if task.GetInWorking() {
 		return
 	}
-	s.setStarted(true)
-	s.runTreadTask(s.taskOnStart)
+	s.runTreadTask(task)
 }
 
 func (s *Session) runTaskOnStop() {
-	if !s.isStarted {
+	task := s.taskOnStop
+	if s.taskOnStop == nil {
 		return
-	} else if s.taskOnStop == nil {
+	} else if task.GetInWorking() {
 		return
 	}
-	s.setStarted(false)
-	s.runTreadTask(s.taskOnStop)
+	s.runTreadTask(task)
 	s.wg.Wait()
+}
+
+func (s *Session) reload() {
+	s.runTaskOnStop()
+	s.runTaskOnStart()
 }
 
 func (s *Session) runMonitor() {
@@ -92,6 +87,7 @@ func (s *Session) runMonitor() {
 	defer func() {
 		s.runTaskOnStop()
 		s.systemWG.Done()
+		close(s.reloadChannel)
 	}()
 
 	s.runTaskOnStart()
@@ -99,11 +95,16 @@ func (s *Session) runMonitor() {
 		select {
 		case <-s.ctx.Done():
 			return
-		case <-s.osChan:
-			s.runTaskOnStop()
-			s.runTaskOnStart()
+		case signal := <-s.reloadChannel:
+			if signal {
+				s.reload()
+			}
 		}
 	}
+}
+
+func (s *Session) SendSignalReload() {
+	s.reloadChannel <- true
 }
 
 func (s *Session) Start() {
@@ -114,11 +115,18 @@ func (s *Session) Stop() {
 	s.finish()
 }
 
+func (s *Session) Wait() {
+	s.wg.Wait()
+}
+
 func NewSession(appName string, logger *logging.Logging, wg *sync.WaitGroup) *Session {
 	session := &Session{
-		appName:  appName,
-		logger:   logger,
-		systemWG: wg,
+		appName:        appName,
+		logger:         logger,
+		taskKeyOnStart: "on start",
+		taskKeyOnStop:  "on stop",
+		systemWG:       wg,
+		reloadChannel:  make(chan bool),
 	}
 	session.initialize()
 	return session

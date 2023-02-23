@@ -228,7 +228,7 @@ func (t *BackgroundTaskManager) executeTaskByInterval(taskWrapper *TaskWrapper) 
 
 // Запуск отложенной задачи
 func (t *BackgroundTaskManager) ExecuteDeferedTask(task Task) {
-	t.Logger.Info(t.AppName, fmt.Sprintf("%s task send to channel defered task manager", task))
+	t.Logger.Info(t.AppName, fmt.Sprintf("%s task send to channel defered task manager", task.GetName()))
 	t.deferedTasks <- task
 }
 

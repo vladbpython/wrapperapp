@@ -6,12 +6,10 @@ import (
 	"log"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/vladbpython/wrapperapp/containers"
 	"github.com/vladbpython/wrapperapp/interfaces"
 	"github.com/vladbpython/wrapperapp/logging"
-	"github.com/vladbpython/wrapperapp/monitoring"
 	"github.com/vladbpython/wrapperapp/system"
 	"github.com/vladbpython/wrapperapp/taskmanager"
 	"github.com/vladbpython/wrapperapp/tools"
@@ -26,7 +24,6 @@ type ApplicationWrapper struct {
 	configFilePath    string
 	system            system.System //Системная структура
 	logger            *logging.Logging
-	monitoring        *monitoring.Monitoring
 	ctx               context.Context    //Текущий конктекст
 	finish            context.CancelFunc // Закрытие текущего контекста
 	gorutinesWaiter   sync.WaitGroup     // Группы горутин
@@ -34,6 +31,14 @@ type ApplicationWrapper struct {
 	useInfo           bool
 	sessionLogger     *logging.Logging
 	containerSessions *containers.SessionContainer
+}
+
+func (a *ApplicationWrapper) Debug() bool {
+	var result bool
+	if a.config.System.Debug >= 1 {
+		result = true
+	}
+	return result
 }
 
 //Иницализируем конфиг
@@ -123,28 +128,8 @@ func (a *ApplicationWrapper) initSystem(signals ...os.Signal) {
 
 //Инциализруем экзмепляр логгирования
 func (a *ApplicationWrapper) initLogger() {
-	a.logger = logging.NewLog(
-		a.config.System.Debug,
-		a.config.System.Logger.DirPath,
-		a.config.System.Logger.MaxSize,
-		a.config.System.Logger.MaxRotate,
-		a.config.System.Logger.Gzip,
-		a.config.System.Logger.StdMode,
-	)
-	if a.monitoring != nil {
-		a.logger.Info(a.appName, "monitoring initializated successfully")
-		a.logger.SetMonitoring(a.monitoring)
-	}
-}
-
-func (a *ApplicationWrapper) initMonitoring() {
-
-	monitoring, err := monitoring.NewMonitoringFromConfig(a.appName, &a.config.System.Monitoring)
-	if err != nil {
-		a.logger.FatalError(a.appName, err)
-	}
-	a.monitoring = monitoring
-
+	a.config.System.Logger.Debug = a.Debug()
+	a.logger = logging.NewLog(a.config.System.Logger)
 }
 
 // Иницализируем контекст
@@ -158,7 +143,6 @@ func (a *ApplicationWrapper) clear() {
 	a.config = ConfigWrapper{}
 	a.configFilePath = ""
 	a.logger = nil
-	a.monitoring = nil
 	a.system = system.System{}
 	a.onStopFuncs = a.onStopFuncs[:0]
 	a.useInfo = false
@@ -174,27 +158,24 @@ func (a *ApplicationWrapper) NewTaskManager(AppName string, Logger *logging.Logg
 func (a *ApplicationWrapper) Setup(signals ...os.Signal) {
 	a.initSystem(signals...)
 	a.initLogger()
-	if a.config.System.Monitoring.Use {
-		a.initMonitoring()
-	}
 
 }
 
 // Инциализировать новый экзмепляр логгирования
 func (a *ApplicationWrapper) NewLogger(DirPath string) *logging.Logging {
-	logger := logging.NewLog(
-		a.config.System.Debug,
-		fmt.Sprintf("%s/%s", a.config.System.Logger.DirPath, DirPath),
-		a.config.System.Logger.MaxSize,
-		a.config.System.Logger.MaxRotate,
-		a.config.System.Logger.Gzip,
-		a.config.System.Logger.StdMode,
-	)
-
-	if a.monitoring != nil {
-		logger.Info(a.appName, "monitoring initializated successfully")
-		logger.SetMonitoring(a.monitoring)
+	newFileConfig := logging.ConfigFileLogger{
+		DirPath:   fmt.Sprintf("%s/%s", a.config.System.Logger.FileConfig.DirPath, DirPath),
+		MaxSize:   a.config.System.Logger.FileConfig.MaxSize,
+		MaxRotate: a.config.System.Logger.FileConfig.MaxRotate,
+		Gzip:      a.config.System.Logger.FileConfig.Gzip,
 	}
+	newConfig := logging.Config{
+		Debug:      a.config.System.Logger.Debug,
+		FileMode:   a.config.System.Logger.FileMode,
+		StdMode:    a.config.System.Logger.StdMode,
+		FileConfig: newFileConfig,
+	}
+	logger := logging.NewLog(newConfig)
 
 	return logger
 }
@@ -219,11 +200,11 @@ func (a *ApplicationWrapper) RunContextListener() {
 		case <-a.system.OnExitSignal():
 			eventString = "closed"
 			return
+		case <-a.system.OnReloadSessionSignal():
+			a.ReloadSessions()
 		case <-a.system.OnDieSignal():
 			eventString = "losed terminated"
 			return
-		case <-time.After(1 * time.Second):
-			continue
 		}
 	}
 }
@@ -243,6 +224,12 @@ func (a *ApplicationWrapper) NewSession(appName string) *system.Session {
 	session := system.NewSession(appName, a.sessionLogger, a.GetWG())
 	a.containerSessions.Add(appName, session)
 	return session
+}
+
+func (a *ApplicationWrapper) ReloadSessions() {
+	for _, session := range a.containerSessions.GetAll() {
+		session.SendSignalReload()
+	}
 }
 
 //Новый экземпляр Wrapper

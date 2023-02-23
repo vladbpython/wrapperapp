@@ -4,6 +4,7 @@ type Task struct {
 	Name      string
 	fn        interface{}
 	arguments []interface{}
+	inWorking bool
 }
 
 func (t *Task) GetName() string {
@@ -11,11 +12,19 @@ func (t *Task) GetName() string {
 }
 
 func (t *Task) GetFn() interface{} {
-	return t.GetFn()
+	return t.fn
 }
 
 func (t *Task) GetArguments() []interface{} {
 	return t.arguments
+}
+
+func (t *Task) GetInWorking() bool {
+	return t.inWorking
+}
+
+func (t *Task) SetInWorking(status bool) {
+	t.inWorking = status
 }
 
 func NewTask(name string, fn interface{}, arguments ...interface{}) *Task {

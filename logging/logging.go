@@ -1,25 +1,18 @@
 package logging
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
-	"time"
-
-	"github.com/vladbpython/wrapperapp/interfaces"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const DateTimeLayout = "2006-01-02 15:04:05"
 
 type Logging struct {
-	DebugMode        uint8
-	LogOut           *log.Logger
-	logError         *log.Logger
-	logOutInstance   *lumberjack.Logger
-	logErrorInstance *lumberjack.Logger
-	Monitoring       interfaces.WrappMonitoring
+	DebugMode   bool
+	fileHandler *FileLogger
+	LogOut      *log.Logger
+	logError    *log.Logger
 }
 
 func (l *Logging) error(AppName string, err error) {
@@ -31,7 +24,7 @@ func (l *Logging) info(AppName, text string) {
 }
 
 func (l *Logging) debug(AppName, text string) {
-	if l.DebugMode >= 1 {
+	if l.DebugMode {
 		l.LogOut.Printf("[DEBUG]: [APPNAME]:%s  [TEXT]: %s\n\r", AppName, text)
 	}
 }
@@ -40,36 +33,20 @@ func (l *Logging) critical(AppName string, err error) {
 	l.logError.Printf("[CRITICAL]: [APPNAME]:%s  [TEXT]: %s\n\r", AppName, err)
 }
 
-func (l *Logging) SetMonitoring(monitor interfaces.WrappMonitoring) {
-	l.Monitoring = monitor
-}
-
-func (l *Logging) SendDataToMonitor(event, AppName, message string) {
-	if l.Monitoring != nil {
-		err := l.Monitoring.SendData(event, AppName, message, time.Now().UTC(), DateTimeLayout)
-		if err != nil {
-			l.error(AppName, err)
-		}
-	}
-}
-
 //Запись лог уровень информативный
 func (l *Logging) Info(AppName, text string) {
 	l.info(AppName, text)
-	l.SendDataToMonitor("INFO", AppName, text)
 
 }
 
 //Запись лог уровень отладчика
 func (l *Logging) Debug(AppName, text string) {
 	l.debug(AppName, text)
-	l.SendDataToMonitor("DEBUG", AppName, text)
 }
 
 //Запись лог уровень ошибок
 func (l *Logging) Error(AppName string, err error) {
 	l.error(AppName, err)
-	l.SendDataToMonitor("ERROR", AppName, fmt.Sprintf("%s", err))
 }
 
 //Запись лог уровень кртических ошибок
@@ -80,41 +57,37 @@ func (l *Logging) FatalError(AppName string, err error) {
 
 //Закрываем логгер
 func (l *Logging) Close() {
-	l.logOutInstance.Close()
-	l.logErrorInstance.Close()
+	if l.fileHandler == nil {
+		return
+	}
+	l.fileHandler.Close()
 }
 
 //Новый экземпляр логгирования
-func NewLog(debug uint8, dirPath string, maxSize int, maxBackups int, gzip bool, stdMode bool) *Logging {
-	var logInfoWriter io.Writer
-	var logErrorWriter io.Writer
+func NewLog(config Config) *Logging {
+	var fileLogger *FileLogger
+	outWriters := make([]io.Writer, 0)
+	errorWriters := make([]io.Writer, 0)
 
-	logInfoRotator := &lumberjack.Logger{
-		Filename:   dirPath + "/out.log",
-		MaxSize:    maxSize,
-		MaxBackups: maxBackups,
-		Compress:   gzip,
-	}
-	logErrorRotator := &lumberjack.Logger{
-		Filename:   dirPath + "/error.log",
-		MaxSize:    maxSize,
-		MaxBackups: maxBackups,
-		Compress:   gzip,
+	if config.FileMode {
+
+		fileLogger = NewFileLogger(config.FileConfig.DirPath, config.FileConfig.MaxSize, config.FileConfig.MaxRotate, fileLogger.out.Compress)
+		outWriters = append(outWriters, fileLogger.out)
+		outWriters = append(outWriters, fileLogger.err)
 	}
 
-	logInfoWriter = logInfoRotator
-	logErrorWriter = logErrorRotator
-
-	if stdMode {
-		logInfoWriter = io.MultiWriter(os.Stdout, logInfoWriter)
-		logErrorWriter = io.MultiWriter(os.Stderr, logErrorWriter)
+	if config.StdMode {
+		outWriters = append(outWriters, os.Stdout)
+		errorWriters = append(errorWriters, os.Stderr)
 	}
+
+	logInfoWriter := io.MultiWriter(outWriters...)
+	logErrorWriter := io.MultiWriter(errorWriters...)
 
 	return &Logging{
-		DebugMode:        debug,
-		LogOut:           log.New(logInfoWriter, "", log.Ldate|log.Ltime),
-		logOutInstance:   logInfoRotator,
-		logError:         log.New(logErrorWriter, "", log.Ldate|log.Ltime),
-		logErrorInstance: logErrorRotator,
+		DebugMode:   config.Debug,
+		fileHandler: fileLogger,
+		LogOut:      log.New(logInfoWriter, "", log.Ldate|log.Ltime),
+		logError:    log.New(logErrorWriter, "", log.Ldate|log.Ltime),
 	}
 }
