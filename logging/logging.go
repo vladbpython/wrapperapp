@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -26,7 +25,7 @@ func (l *Logging) info(AppName, text string) {
 
 func (l *Logging) debug(AppName, text string) {
 	if l.DebugMode {
-		l.fileHandler.out.Write([]byte(fmt.Sprintf("[DEBUG]: [APPNAME]:%s  [TEXT]: %s\n\r", AppName, text)))
+		l.LogOut.Printf("[DEBUG]: [APPNAME]:%s  [TEXT]: %s\n\r", AppName, text)
 	}
 }
 
