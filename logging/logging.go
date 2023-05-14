@@ -25,7 +25,7 @@ func (l *Logging) info(AppName, text string) {
 }
 
 func (l *Logging) debug(AppName, text string) {
-	if l.DebugMode && l.fileHandler != nil {
+	if l.DebugMode {
 		l.fileHandler.out.Write([]byte(fmt.Sprintf("[DEBUG]: [APPNAME]:%s  [TEXT]: %s\n\r", AppName, text)))
 	}
 }
@@ -34,29 +34,29 @@ func (l *Logging) critical(AppName string, err error) {
 	l.logError.Printf("[CRITICAL]: [APPNAME]:%s  [TEXT]: %s\n\r", AppName, err)
 }
 
-//Запись лог уровень информативный
+// Запись лог уровень информативный
 func (l *Logging) Info(AppName, text string) {
 	l.info(AppName, text)
 
 }
 
-//Запись лог уровень отладчика
+// Запись лог уровень отладчика
 func (l *Logging) Debug(AppName, text string) {
 	l.debug(AppName, text)
 }
 
-//Запись лог уровень ошибок
+// Запись лог уровень ошибок
 func (l *Logging) Error(AppName string, err error) {
 	l.error(AppName, err)
 }
 
-//Запись лог уровень кртических ошибок
+// Запись лог уровень кртических ошибок
 func (l *Logging) FatalError(AppName string, err error) {
 	l.critical(AppName, err)
 	os.Exit(-1)
 }
 
-//Закрываем логгер
+// Закрываем логгер
 func (l *Logging) Close() {
 	if l.fileHandler == nil {
 		return
@@ -64,7 +64,7 @@ func (l *Logging) Close() {
 	l.fileHandler.Close()
 }
 
-//Новый экземпляр логгирования
+// Новый экземпляр логгирования
 func NewLog(config Config) *Logging {
 	var fileLogger *FileLogger
 	outWriters := make([]io.Writer, 0)
