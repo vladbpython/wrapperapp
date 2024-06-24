@@ -41,7 +41,7 @@ func (a *ApplicationWrapper) Debug() bool {
 	return result
 }
 
-//Иницализируем конфиг
+// Иницализируем конфиг
 func (a *ApplicationWrapper) LoadConfigYaml(config interface{}) {
 	tools.LoadYamlConfig(a.configFilePath, config)
 
@@ -55,13 +55,13 @@ func (a *ApplicationWrapper) LoadConfigEnv(section_prefix string, config interfa
 	tools.ParseEnvConfig(section_prefix, config)
 }
 
-//Деллигируем Контекст приложению
+// Деллигируем Контекст приложению
 func (a *ApplicationWrapper) WrapApplicationContext(app interfaces.WrapApplicationContextInterface) {
 	app.WrapContext(a.ctx)
 
 }
 
-//Деллигируем слушателя горутин  приложению
+// Деллигируем слушателя горутин  приложению
 func (a *ApplicationWrapper) WrapApplicationWaitGroup(app interfaces.WrapApplicationWaitGroupInterface) {
 	app.WrapWaitGroup(&a.gorutinesWaiter)
 }
@@ -73,7 +73,7 @@ func (a *ApplicationWrapper) closeSessions() {
 	}
 }
 
-//Посылаем остановку приложения
+// Посылаем остановку приложения
 func (a *ApplicationWrapper) close(text string) {
 	a.closeSessions()
 	a.finish()
@@ -126,7 +126,7 @@ func (a *ApplicationWrapper) initSystem(signals ...os.Signal) {
 	a.system = system.NewSystem(a.config.System.Debug, signals...)
 }
 
-//Инциализруем экзмепляр логгирования
+// Инциализруем экзмепляр логгирования
 func (a *ApplicationWrapper) initLogger() {
 	a.config.System.Logger.Debug = a.Debug()
 	a.logger = logging.NewLog(a.config.System.Logger)
@@ -170,7 +170,7 @@ func (a *ApplicationWrapper) NewLogger(DirPath string) *logging.Logging {
 		Gzip:      a.config.System.Logger.FileConfig.Gzip,
 	}
 	newConfig := logging.Config{
-		Debug:      a.config.System.Logger.Debug,
+		Debug:      a.Debug(),
 		FileMode:   a.config.System.Logger.FileMode,
 		StdMode:    a.config.System.Logger.StdMode,
 		FileConfig: newFileConfig,
@@ -185,7 +185,7 @@ func (a *ApplicationWrapper) NewSystemInterface() interfaces.WrapSystemInterface
 	return &a.system
 }
 
-//Включаем слушателя сигналов
+// Включаем слушателя сигналов
 func (a *ApplicationWrapper) RunContextListener() {
 	var eventString string
 
@@ -232,7 +232,7 @@ func (a *ApplicationWrapper) ReloadSessions() {
 	}
 }
 
-//Новый экземпляр Wrapper
+// Новый экземпляр Wrapper
 func NewWrapperApplication(ApplicationName, configType, ConfigFilePath string, useInfo bool, withContext bool, signals ...os.Signal) *ApplicationWrapper {
 	config := ConfigWrapper{}
 	switch configType {
